@@ -65,7 +65,7 @@ app.post('/api/sync', async (req, res) => {
 
     } catch (error) {
         console.error("AI Server Error:", error);
-        res.status(500).json({ error: "The AI engine failed to process the request. Check your API key and connection." });
+        res.status(500).json({ error: `The AI engine failed: ${error.message || error.toString()}` });
     }
 });
 
