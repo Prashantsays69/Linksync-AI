@@ -1,0 +1,34 @@
+﻿node : 
+[GoogleGenerativeAI 
+Error]: Error fetching 
+from https://generative
+language.googleapis.com
+/v1beta/models/gemini-1
+.5-flash-latest:generat
+eContent: [404 Not 
+Found] models/gemini-1.
+5-flash-latest is not 
+found for API version 
+v1beta, or is not 
+supported for 
+generateContent. Call 
+ListModels to see the 
+list of available 
+models and their 
+supported methods.
+At line:1 char:1
++ node test_models.js 
+2>&1 | Out-File 
+-Encoding utf8 out2.txt
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ([GoogleGenera   
+ ti...ported method    
+s.:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 

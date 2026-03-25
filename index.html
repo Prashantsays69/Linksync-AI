@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkSync AI | 3D Spatial Forge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --glass-bg: rgba(15, 23, 42, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --accent: #3b82f6;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #020617;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            perspective: 2000px;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translate(0px, 0px) scale(1);
+            }
+
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+
+            100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+        }
+
+        .blob {
+            position: fixed;
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            z-index: -1;
+            filter: blur(120px);
+            pointer-events: none;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .blob-1 {
+            top: -200px;
+            left: -200px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+        }
+
+        .blob-2 {
+            bottom: -200px;
+            right: -200px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+            animation-delay: -10s;
+        }
+
+        #main-viewport {
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            transform-style: preserve-3d;
+            transition: all 0.3s ease;
+        }
+
+        .card-content {
+            transform: translateZ(30px);
+        }
+
+        .input-glass {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .input-glass:focus {
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .btn-3d {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-3d:active {
+            transform: translateZ(-5px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .history-card {
+            animation: slideIn 0.4s ease-out forwards;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        #cursor-glow {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: plus-lighter;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen selection:bg-blue-500/30">
+    <div id="cursor-glow"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <!-- AUTH SECTION -->
+    <div id="auth-section" class="min-h-screen flex items-center justify-center p-6">
+        <div class="glass-card p-12 rounded-[3.5rem] w-full max-w-md text-center" data-tilt>
+            <div class="card-content">
+                <h1 class="text-4xl font-black mb-2 tracking-tighter gradient-text">LinkSync AI</h1>
+                <p class="text-slate-500 text-sm mb-10 uppercase tracking-widest font-bold">Neural Gateway Login</p>
+
+                <div class="flex bg-slate-900/50 p-1.5 rounded-2xl mb-8 border border-white/5">
+                    <button id="emailTab"
+                        class="flex-1 py-3 text-xs font-black rounded-xl bg-blue-600 transition-all text-white">EMAIL</button>
+                    <button id="phoneTab"
+                        class="flex-1 py-3 text-xs font-black rounded-xl transition-all text-slate-400 hover:text-white">PHONE</button>
+                    <button id="demoTab"
+                        class="flex-1 py-3 text-xs font-black rounded-xl transition-all text-purple-400 hover:text-white">DEMO</button>
+                </div>
+
+                <div id="emailForm" class="space-y-4">
+                    <input type="email" id="emailInput" placeholder="Secure Email"
+                        class="w-full input-glass rounded-2xl p-5 text-sm focus:outline-none">
+                    <input type="password" id="passwordInput" placeholder="Encrypted Password"
+                        class="w-full input-glass rounded-2xl p-5 text-sm focus:outline-none">
+                    <button id="emailLoginBtn"
+                        class="w-full btn-3d py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] text-white">Initialize
+                        Sync</button>
+                </div>
+
+                <div id="phoneForm" class="hidden space-y-4">
+                    <div id="recaptcha-container"></div>
+                    <input type="text" id="phoneInput" placeholder="+91 XXXXX XXXXX"
+                        class="w-full input-glass rounded-2xl p-5 text-sm focus:outline-none">
+                    <button id="sendOtpBtn"
+                        class="w-full btn-3d py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] text-white">Request
+                        OTP</button>
+                    <div id="otpSection" class="hidden space-y-4 pt-6 mt-6 border-t border-white/5">
+                        <input type="text" id="otpInput" placeholder="6-digit Code"
+                            class="w-full input-glass rounded-2xl p-5 text-sm focus:outline-none">
+                        <button id="verifyOtpBtn"
+                            class="w-full bg-emerald-600 hover:bg-emerald-500 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] text-white transition-all">Confirm
+                            Identity</button>
+                    </div>
+                </div>
+
+                <div id="demoForm" class="hidden space-y-4">
+                    <div class="p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl mb-4">
+                        <p class="text-xs text-purple-300 leading-relaxed font-medium">Firebase Authentication is
+                            currently blocked by project rules. Use this <strong class="text-white">Demo Mode</strong>
+                            to bypass login and evaluate the application interface locally.</p>
+                    </div>
+                    <button id="demoLoginBtn" class="w-full btn-3d"
+                        style="background: linear-gradient(135deg, #9333ea 0%, #db2777 100%); padding-top: 1.25rem; padding-bottom: 1.25rem; border-radius: 1rem; font-weight: 900; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.2em; color: white;">Enter
+                        Demo Interface</button>
+                </div>
+                <p id="authError" class="text-red-400 text-[10px] mt-6 font-bold uppercase tracking-wide"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-section" class="hidden">
+        <div id="main-viewport" class="max-w-7xl mx-auto px-6 py-12">
+            <header class="text-center mb-16">
+                <div class="flex items-center justify-between mb-12">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span id="userDisplay"
+                            class="text-[10px] font-black uppercase tracking-widest text-blue-400"></span>
+                    </div>
+                    <button id="logoutBtn"
+                        class="text-[10px] font-black uppercase text-red-500 hover:text-white transition-all tracking-widest"><i
+                            class="fas fa-power-off mr-2"></i>Terminate Session</button>
+                </div>
+                <h1 class="text-7xl md:text-9xl font-black mb-6 tracking-tighter">LinkSync <span
+                        class="gradient-text">AI</span></h1>
+                <p class="text-slate-400 text-xl font-light tracking-wide max-w-2xl mx-auto">Architecting your
+                    professional narrative in 3D Space.</p>
+            </header>
+
+            <div class="mb-16 flex flex-wrap items-center justify-center gap-6">
+                <div class="glass-card px-8 py-4 rounded-3xl flex items-center gap-4">
+                    <i class="fas fa-bullseye text-purple-500"></i>
+                    <select id="targetRole"
+                        class="bg-transparent border-none focus:ring-0 text-sm text-slate-200 cursor-pointer font-bold">
+                        <option value="Software Engineer" class="bg-slate-900">Software Engineer</option>
+                        <option value="VLSI Engineer" class="bg-slate-900">VLSI Engineer</option>
+                        <option value="Data Scientist" class="bg-slate-900">Data Scientist</option>
+                        <option value="Embedded Systems Engineer" class="bg-slate-900">Embedded Engineer</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                <aside class="lg:col-span-3">
+                    <div class="glass-card p-10 rounded-[3rem] sticky top-12 h-fit" data-tilt>
+                        <div class="card-content">
+                            <h3 class="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600 mb-10"><i
+                                    class="fas fa-database mr-2"></i> Session Archive</h3>
+                            <div id="historyList" class="space-y-6 max-h-[500px] overflow-y-auto pr-2">
+                                <p class="text-[10px] text-slate-700 italic text-center">Neural history clear.</p>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+
+                <main class="lg:col-span-9 grid grid-cols-1 xl:grid-cols-2 gap-10">
+                    <section class="glass-card p-12 rounded-[3.5rem]" data-tilt>
+                        <div class="card-content">
+                            <div class="flex justify-between items-center mb-8">
+                                <h2 class="text-[10px] font-black uppercase text-blue-500 tracking-widest">Source Input
+                                    Data</h2>
+                                <span id="charCount"
+                                    class="text-[9px] font-black bg-blue-500/10 px-3 py-1 rounded-full text-blue-400">0
+                                    CHARS</span>
+                            </div>
+                            <textarea id="userInput"
+                                class="input-glass w-full h-[400px] rounded-[2.5rem] p-8 text-slate-300 focus:outline-none resize-none text-sm leading-relaxed"
+                                placeholder="Enter messy bio or project notes..."></textarea>
+                            <div class="grid grid-cols-2 gap-4 mt-10">
+                                <button id="syncBioBtn" onclick="runSync('bio')"
+                                    class="btn-3d text-white py-5 rounded-2xl font-black text-[10px] tracking-widest uppercase">SYNC
+                                    BIOGRAPHY</button>
+                                <button id="syncHeadBtn" onclick="runSync('head')"
+                                    class="glass-card bg-slate-800/40 hover:bg-slate-800/80 text-white py-5 rounded-2xl font-black text-[10px] tracking-widest uppercase">FORGE
+                                    HEADLINE</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="space-y-10">
+                        <div id="bioCard" class="glass-card p-12 rounded-[3.5rem] min-h-[450px] relative flex flex-col"
+                            data-tilt>
+                            <div class="card-content flex-grow flex flex-col">
+                                <h3
+                                    class="text-[10px] font-black uppercase text-emerald-400 mb-8 tracking-widest italic">
+                                    Optimized Identity</h3>
+                                <div id="bioOutput"
+                                    class="markdown-content flex-grow text-sm text-slate-300 leading-relaxed font-light">
+                                    <p class="text-slate-800 font-black tracking-widest uppercase text-[10px]">Awaiting
+                                        system parameters...</p>
+                                </div>
+                                <div id="bioSkeleton" class="hidden flex-grow space-y-6">
+                                    <div class="skeleton h-5 w-3/4"></div>
+                                    <div class="skeleton h-5 w-full"></div>
+                                    <div class="skeleton h-5 w-5/6"></div>
+                                </div>
+                                <div class="mt-10 pt-8 border-t border-white/5 flex justify-between items-center">
+                                    <button onclick="copyToClipboard('bioOutput')"
+                                        class="text-[9px] font-black tracking-widest text-slate-600 hover:text-blue-400 transition-all uppercase">
+                                        <i class="far fa-copy mr-2"></i> Clone Identity
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"
+        class="fixed bottom-12 right-12 px-10 py-5 rounded-[2rem] glass-card border-l-4 border-emerald-500 shadow-2xl hidden translate-y-32 transition-all duration-700 flex items-center gap-5 z-[9999]">
+        <i class="fas fa-circle-check text-emerald-400 text-xl"></i>
+        <span class="text-[11px] font-black uppercase tracking-widest text-emerald-400">Operation Successful</span>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPhoneNumber, RecaptchaVerifier, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // ==========================================
+        // STEP 1: PLACE YOUR FIREBASE CONFIG BELOW
+        // ==========================================
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyAdIOc1RSIoePzyAnnt2Eqc4TxThyKwbZU",
+            authDomain: "linksync-ai-678b3.firebaseapp.com",
+            projectId: "linksync-ai-678b3",
+            storageBucket: "linksync-ai-678b3.firebasestorage.app",
+            messagingSenderId: "832921684412",
+            appId: "1:832921684412:web:64ed3a3f5cb0bbea54c3b9",
+            measurementId: "G-LDLKP1N395"
+        };
+        // ==========================================
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = 'linksync-ai-v2';
+
+        let confirmationResult = null;
+        let currentUser = null;
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('app-section').classList.remove('hidden');
+                document.getElementById('userDisplay').innerText = user.email || user.phoneNumber || `Guest: ${user.uid.substring(0, 6)}`;
+                if (user.uid !== 'demo-user-123') {
+                    loadHistory(user.uid);
+                }
+            } else {
+                currentUser = null;
+                document.getElementById('auth-section').classList.remove('hidden');
+                document.getElementById('app-section').classList.add('hidden');
+            }
+        });
+
+        document.getElementById('emailLoginBtn').onclick = async () => {
+            const email = document.getElementById('emailInput').value;
+            const pass = document.getElementById('passwordInput').value;
+            if (!email || !pass) return showError("Credentials required.");
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (e) {
+                try {
+                    await createUserWithEmailAndPassword(auth, email, pass);
+                } catch (err) { showError(err.message); }
+            }
+        };
+
+        try {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { 'size': 'invisible' });
+        } catch (e) { console.warn("Recaptcha init failed"); }
+
+        document.getElementById('sendOtpBtn').onclick = async () => {
+            const phone = document.getElementById('phoneInput').value;
+            if (!phone) return showError("Phone number required.");
+            try {
+                confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+                document.getElementById('otpSection').classList.remove('hidden');
+                showToast("Neural Code Sent");
+            } catch (e) { showError(e.message); }
+        };
+
+        document.getElementById('verifyOtpBtn').onclick = async () => {
+            const code = document.getElementById('otpInput').value;
+            if (!code) return showError("OTP required.");
+            try { await confirmationResult.confirm(code); } catch (e) { showError(e.message); }
+        };
+
+        document.getElementById('demoLoginBtn').onclick = () => {
+            currentUser = { uid: 'demo-user-123', email: 'demo@linksync.ai' };
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('app-section').classList.remove('hidden');
+            document.getElementById('userDisplay').innerText = currentUser.email;
+
+            const list = document.getElementById('historyList');
+            list.innerHTML = `<div class="history-card p-5 glass-card rounded-2xl border-l-2 border-purple-500/40 mb-4 hover:bg-white/5 transition-all">
+                <div class="text-[9px] font-black text-purple-400 mb-1 uppercase">System • Demo Active</div>
+                <div class="text-[10px] text-slate-300 truncate font-light italic">"Neural connection simulating offline environment..."</div>
+            </div>`;
+            showToast("Demo Mode Activated");
+        };
+
+        document.getElementById('logoutBtn').onclick = () => {
+            if (currentUser && currentUser.uid === 'demo-user-123') {
+                currentUser = null;
+                document.getElementById('auth-section').classList.remove('hidden');
+                document.getElementById('app-section').classList.add('hidden');
+                document.getElementById('emailTab').click();
+                showToast("Demo Session Terminated");
+            } else {
+                signOut(auth);
+            }
+        };
+
+        window.runSync = async (type) => {
+            if (!currentUser) return showToast("Please login first.");
+            const text = document.getElementById('userInput').value;
+            const role = document.getElementById('targetRole').value;
+            const output = document.getElementById('bioOutput');
+            const skeleton = document.getElementById('bioSkeleton');
+
+            if (!text) return showToast("Input empty.");
+
+            output.classList.add('hidden');
+            skeleton.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, type, role })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    output.innerHTML = marked.parse(result.data);
+
+                    if (currentUser && currentUser.uid !== 'demo-user-123') {
+                        const historyRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
+                        await addDoc(historyRef, {
+                            type, role, date: new Date().toISOString(), result: result.data
+                        });
+                    } else {
+                        // Mock history append for Demo Mode
+                        const list = document.getElementById('historyList');
+                        const historyHtml = `<div class="history-card p-5 glass-card rounded-2xl border-l-2 border-blue-500/40 mb-4 hover:bg-white/5 transition-all transform hover:-translate-y-1 hover:shadow-lg cursor-pointer">
+                            <div class="text-[9px] font-black text-slate-600 mb-1 uppercase">${type} • ${role}</div>
+                            <div class="text-[10px] text-slate-300 truncate font-light italic">"${(result.data || '').substring(0, 40)}..."</div>
+                        </div>`;
+
+                        if (list.querySelector('.italic.text-center')) {
+                            list.innerHTML = historyHtml;
+                        } else {
+                            list.insertAdjacentHTML('afterbegin', historyHtml);
+                        }
+                    }
+                    showToast("Identity Synced");
+                } else {
+                    output.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl"><p class="text-xs text-red-400 font-bold uppercase tracking-widest mb-1">Sync Failure</p><p class="text-xs text-red-300">${result.error || "Unknown server error."}</p></div>`;
+                    showToast("Sync Failed");
+                }
+            } catch (e) {
+                console.error(e);
+                output.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl"><p class="text-xs text-red-400 font-bold uppercase tracking-widest mb-1">Connection Error</p><p class="text-xs text-red-300">Could not reach the neural gateway.</p></div>`;
+                showToast("Backend connection failed.");
+            }
+            output.classList.remove('hidden');
+            skeleton.classList.add('hidden');
+        };
+
+        function loadHistory(uid) {
+            const historyRef = collection(db, 'artifacts', appId, 'users', uid, 'history');
+            onSnapshot(historyRef, (snapshot) => {
+                const list = document.getElementById('historyList');
+                list.innerHTML = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return `<div class="p-5 glass-card rounded-2xl border-l-2 border-blue-500/40 mb-4 hover:bg-white/5 transition-all">
+                        <div class="text-[9px] font-black text-slate-600 mb-1 uppercase">${data.type} • ${data.role}</div>
+                        <div class="text-[10px] text-slate-300 truncate font-light italic">"${(data.result || '').substring(0, 40)}..."</div>
+                    </div>`;
+                }).join('') || '<p class="text-[9px] text-slate-700 italic text-center">No neural logs found.</p>';
+            }, (err) => console.error("Firestore error:", err));
+        }
+
+        function showError(m) { document.getElementById('authError').innerText = m; }
+        function showToast(m) {
+            const t = document.getElementById('toast');
+            t.querySelector('span').innerText = m;
+            t.classList.remove('hidden', 'translate-y-32');
+            setTimeout(() => t.classList.add('translate-y-32'), 3000);
+        }
+        window.copyToClipboard = (id) => {
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text);
+            showToast("Copied to Neural Link");
+        };
+
+        window.addEventListener('mousemove', (e) => {
+            gsap.to("#cursor-glow", { x: e.clientX, y: e.clientY, duration: 0.1 });
+        });
+
+        document.getElementById('userInput').oninput = (e) => {
+            document.getElementById('charCount').innerText = `${e.target.value.length} CHARS`;
+        };
+
+        document.getElementById('emailTab').onclick = () => {
+            document.getElementById('emailForm').classList.remove('hidden');
+            document.getElementById('phoneForm').classList.add('hidden');
+            document.getElementById('demoForm').classList.add('hidden');
+            document.getElementById('emailTab').classList.add('bg-blue-600', 'text-white');
+            document.getElementById('emailTab').classList.remove('bg-slate-900/50', 'text-slate-400');
+            document.getElementById('phoneTab').classList.remove('bg-blue-600');
+            document.getElementById('phoneTab').classList.add('text-slate-400');
+            document.getElementById('demoTab').classList.remove('bg-purple-600', 'text-white');
+            document.getElementById('demoTab').classList.add('text-purple-400');
+        };
+        document.getElementById('phoneTab').onclick = () => {
+            document.getElementById('phoneForm').classList.remove('hidden');
+            document.getElementById('emailForm').classList.add('hidden');
+            document.getElementById('demoForm').classList.add('hidden');
+            document.getElementById('phoneTab').classList.add('bg-blue-600', 'text-white');
+            document.getElementById('phoneTab').classList.remove('text-slate-400');
+            document.getElementById('emailTab').classList.remove('bg-blue-600');
+            document.getElementById('emailTab').classList.add('text-slate-400');
+            document.getElementById('demoTab').classList.remove('bg-purple-600', 'text-white');
+            document.getElementById('demoTab').classList.add('text-purple-400');
+        };
+        document.getElementById('demoTab').onclick = () => {
+            document.getElementById('demoForm').classList.remove('hidden');
+            document.getElementById('emailForm').classList.add('hidden');
+            document.getElementById('phoneForm').classList.add('hidden');
+            document.getElementById('demoTab').classList.add('bg-purple-600', 'text-white');
+            document.getElementById('demoTab').classList.remove('text-purple-400');
+            document.getElementById('emailTab').classList.remove('bg-blue-600');
+            document.getElementById('emailTab').classList.add('text-slate-400');
+            document.getElementById('phoneTab').classList.remove('bg-blue-600');
+            document.getElementById('phoneTab').classList.add('text-slate-400');
+        };
+    </script>
+</body>
+
+</html>
