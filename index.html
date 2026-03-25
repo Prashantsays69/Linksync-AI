@@ -459,41 +459,56 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text, type, role })
                 });
-                const result = await response.json();
-                if (result.success) {
-                    output.innerHTML = marked.parse(result.data);
 
-                    if (currentUser && currentUser.uid !== 'demo-user-123') {
-                        const historyRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
-                        await addDoc(historyRef, {
-                            type, role, date: new Date().toISOString(), result: result.data
-                        });
-                    } else {
-                        // Mock history append for Demo Mode
-                        const list = document.getElementById('historyList');
-                        const historyHtml = `<div class="history-card p-5 glass-card rounded-2xl border-l-2 border-blue-500/40 mb-4 hover:bg-white/5 transition-all transform hover:-translate-y-1 hover:shadow-lg cursor-pointer">
-                            <div class="text-[9px] font-black text-slate-600 mb-1 uppercase">${type} • ${role}</div>
-                            <div class="text-[10px] text-slate-300 truncate font-light italic">"${(result.data || '').substring(0, 40)}..."</div>
-                        </div>`;
-
-                        if (list.querySelector('.italic.text-center')) {
-                            list.innerHTML = historyHtml;
-                        } else {
-                            list.insertAdjacentHTML('afterbegin', historyHtml);
-                        }
-                    }
-                    showToast("Identity Synced");
-                } else {
-                    output.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl"><p class="text-xs text-red-400 font-bold uppercase tracking-widest mb-1">Sync Failure</p><p class="text-xs text-red-300">${result.error || "Unknown server error."}</p></div>`;
-                    showToast("Sync Failed");
+                if (!response.ok) {
+                    const errResult = await response.json();
+                    throw new Error(errResult.error || "Server error");
                 }
+
+                output.classList.remove('hidden');
+                skeleton.classList.add('hidden');
+                output.innerHTML = ""; // Clear existing output for streaming
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullText = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    fullText += decoder.decode(value, { stream: true });
+                    output.innerHTML = marked.parse(fullText);
+                }
+
+                if (currentUser && currentUser.uid !== 'demo-user-123') {
+                    const historyRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'history');
+                    await addDoc(historyRef, {
+                        type, role, date: new Date().toISOString(), result: fullText
+                    });
+                } else {
+                    // Mock history append for Demo Mode
+                    const list = document.getElementById('historyList');
+                    const historyHtml = `<div class="history-card p-5 glass-card rounded-2xl border-l-2 border-blue-500/40 mb-4 hover:bg-white/5 transition-all transform hover:-translate-y-1 hover:shadow-lg cursor-pointer">
+                        <div class="text-[9px] font-black text-slate-600 mb-1 uppercase">${type} • ${role}</div>
+                        <div class="text-[10px] text-slate-300 truncate font-light italic">"${(fullText || '').substring(0, 40)}..."</div>
+                    </div>`;
+
+                    if (list.querySelector('.italic.text-center')) {
+                        list.innerHTML = historyHtml;
+                    } else {
+                        list.insertAdjacentHTML('afterbegin', historyHtml);
+                    }
+                }
+                showToast("Identity Synced");
+
             } catch (e) {
                 console.error(e);
-                output.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl"><p class="text-xs text-red-400 font-bold uppercase tracking-widest mb-1">Connection Error</p><p class="text-xs text-red-300">Could not reach the neural gateway.</p></div>`;
-                showToast("Backend connection failed.");
+                output.classList.remove('hidden');
+                skeleton.classList.add('hidden');
+                output.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl"><p class="text-xs text-red-400 font-bold uppercase tracking-widest mb-1">Sync Failure</p><p class="text-xs text-red-300">${e.message || "Could not reach the neural gateway."}</p></div>`;
+                showToast("Sync Failed");
             }
-            output.classList.remove('hidden');
-            skeleton.classList.add('hidden');
         };
 
         function loadHistory(uid) {

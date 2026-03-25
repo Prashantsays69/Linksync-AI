@@ -12,11 +12,11 @@ app.use(express.json());
 const apiKey = process.env.GEMINI_API_KEY || ""; 
 const genAI = new GoogleGenerativeAI(apiKey);
 
-async function generateWithRetry(model, prompt, retries = 2) {
+async function generateStreamWithRetry(model, prompt, retries = 2) {
     for (let i = 0; i < retries; i++) {
         try {
-            const result = await model.generateContent(prompt);
-            return result.response.text();
+            const result = await model.generateContentStream(prompt);
+            return result;
         } catch (err) {
             const errorMessage = err.message || "";
             // Fail fast for authentication, not found, or quota exceeded errors
@@ -60,12 +60,24 @@ app.post('/api/sync', async (req, res) => {
                 return res.status(400).json({ error: "Invalid synchronization type provided." });
         }
 
-        const output = await generateWithRetry(model, prompt);
-        res.json({ success: true, data: output });
+        const result = await generateStreamWithRetry(model, prompt);
+        
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            res.write(chunkText);
+        }
+        res.end();
 
     } catch (error) {
         console.error("AI Server Error:", error);
-        res.status(500).json({ error: `The AI engine failed: ${error.message || error.toString()}` });
+        if (!res.headersSent) {
+            res.status(500).json({ error: `The AI engine failed: ${error.message || error.toString()}` });
+        } else {
+            res.end(`\n\n[Error Stream Interrupted: ${error.message}]`);
+        }
     }
 });
 
